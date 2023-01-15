@@ -174,16 +174,32 @@ defmodule Injecto do
 
       @spec array_schema({atom(), any()}, Keyword.t()) :: map()
       defp array_schema({:array, inner_type}, opts) do
-        case inner_type do
-          {:enum, values} ->
-            %{"type" => "array", "items" => enum_schema({:enum, values}, opts)}
+        schema =
+          case inner_type do
+            {:enum, values} ->
+              %{"type" => "array", "items" => enum_schema({:enum, values}, [])}
 
-          inner_type when inner_type in @scalar_types ->
-            %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}
+            inner_type when inner_type in @scalar_types ->
+              %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}
 
-          _ ->
-            %{"type" => "array", "items" => inner_type.json_schema()}
-        end
+            _ ->
+              %{"type" => "array", "items" => inner_type.json_schema()}
+          end
+
+        opts =
+          opts
+          |> Keyword.take([:min_items, :max_items, :unique_items])
+          |> Enum.map(fn {key, value} ->
+            case key do
+              :min_items -> {"minItems", value}
+              :max_items -> {"maxItems", value}
+              :unique_items -> {"uniqueItems", value}
+              _ -> {Atom.to_string(key), value}
+            end
+          end)
+          |> Enum.into(%{})
+
+        Map.merge(schema, opts)
       end
 
       @spec enum_schema({:enum, [atom()] | Keyword.t()}, Keyword.t()) :: map()
@@ -201,9 +217,11 @@ defmodule Injecto do
           :binary -> string_schema(opts)
           :binary_id -> string_schema(opts)
           :float -> number_schema(opts)
-          :decimal -> string_schema(opts)
           :id -> integer_schema(opts)
+          :integer -> integer_schema(opts)
+          :string -> string_schema(opts)
           :map -> object_schema(opts)
+          :decimal -> string_schema(opts)
           :date -> string_schema(Keyword.put(opts, :format, "date"))
           :time -> string_schema(Keyword.put(opts, :format, "time"))
           :time_usec -> string_schema(Keyword.put(opts, :format, "time"))

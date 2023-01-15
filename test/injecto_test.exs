@@ -107,8 +107,51 @@ defmodule InjectoTest do
 
     assert {:error, _} = PointDummy.parse_many(invalid_maps)
     assert {:error, _} = PointDummy.parse_many(valid_maps ++ invalid_maps)
-    assert {:error, _} = PointDummy.parse_many(valid_maps ++ Enum.take(invalid_maps, 1))
+
+    for invalid_map <- invalid_maps do
+      assert {:error, _} = PointDummy.parse_many(valid_maps ++ [invalid_map])
+    end
   end
 
-  # TODO: test JSON schema options
+  test "JSON schema extra keywords" do
+    valid_maps = [
+      %{int_min: 0},
+      %{int_exc_min: 1},
+      %{int_max: 0},
+      %{int_exc_max: -1},
+      %{str_min: "a"},
+      %{str_max: "a"},
+      %{phone: "(888)555-1212"},
+      %{email: "abc@def.com"},
+      %{arr_min: [0]},
+      %{arr_max: [0]},
+      %{arr_unique: [0]}
+    ]
+
+    for valid_map <- valid_maps do
+      assert {:ok, %KeywordDummy{}} = KeywordDummy.parse(valid_map)
+      assert {:ok, _} = KeywordDummy.validate_json(valid_map)
+    end
+
+    invalid_maps = [
+      %{int_min: -1},
+      %{int_exc_min: 0},
+      %{int_max: 1},
+      %{int_exc_max: 0},
+      %{str_min: ""},
+      %{str_max: "ab"},
+      %{phone: "(800)FLOWERS"},
+      %{email: "abc@def"},
+      %{arr_min: []},
+      %{arr_max: [0, 1]},
+      %{arr_unique: [0, 0]}
+    ]
+
+    for invalid_map <- invalid_maps do
+      assert {:ok, %KeywordDummy{}} = KeywordDummy.parse(invalid_map)
+      assert {:error, _} = KeywordDummy.validate_json(invalid_map)
+    end
+  end
+
+  # TODO: embedded schemas + object's JSON schema options
 end

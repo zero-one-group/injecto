@@ -41,3 +41,20 @@ defmodule PointDummy do
   }
   use Injecto
 end
+
+defmodule KeywordDummy do
+  @properties %{
+    int_min: {:integer, minimum: 0},
+    int_exc_min: {:integer, exclusive_minimum: 0},
+    int_max: {:integer, maximum: 0},
+    int_exc_max: {:integer, exclusive_maximum: 0},
+    str_min: {:string, min_length: 1},
+    str_max: {:string, max_length: 1},
+    phone: {:string, pattern: "^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$"},
+    email: {:string, format: "email"},
+    arr_min: {{:array, :integer}, min_items: 1},
+    arr_max: {{:array, :integer}, max_items: 1},
+    arr_unique: {{:array, :integer}, unique_items: true}
+  }
+  use Injecto
+end
