@@ -15,7 +15,9 @@ defmodule Dummy do
     naive_datetime: {:naive_datetime, required: true},
     naive_datetime_usec: {:naive_datetime_usec, required: true},
     utc_datetime: {:utc_datetime, required: true},
-    utc_datetime_usec: {:utc_datetime_usec, required: true}
+    utc_datetime_usec: {:utc_datetime_usec, required: true},
+    array_integer: {{:array, :integer}, required: true},
+    array_string: {{:array, :string}, required: true}
   }
   use Injecto
 end

@@ -7,13 +7,31 @@ defmodule Injecto do
       @derive {Jason.Encoder, only: Map.keys(@properties)}
       @behaviour Injecto
 
+      @scalar_types [
+        :binary,
+        :binary_id,
+        :boolean,
+        :float,
+        :id,
+        :integer,
+        :string,
+        :map,
+        :decimal,
+        :date,
+        :time,
+        :time_usec,
+        :naive_datetime,
+        :naive_datetime_usec,
+        :utc_datetime,
+        :utc_datetime_usec
+      ]
+
       ## ---------------------------------------------------------------------------
       ## Ecto
       ## ---------------------------------------------------------------------------
       use Ecto.Schema
       import Ecto.Changeset
 
-      # TODO: support array of builtin types
       # TODO: support for non-embedded schemas
       # TODO: support for enums
       @primary_key false
@@ -21,9 +39,16 @@ defmodule Injecto do
         @properties
         |> Enum.map(fn {name, {type, _opts}} ->
           case type do
-            {:object, module} -> embeds_one(name, module)
-            {:array, module} -> embeds_many(name, module)
-            type -> field(name, type)
+            {:object, module} ->
+              embeds_one(name, module)
+
+            {:array, inner_type} ->
+              if Enum.member?(@scalar_types, inner_type),
+                do: field(name, {:array, inner_type}),
+                else: embeds_many(name, inner_type)
+
+            type ->
+              field(name, type)
           end
         end)
       end
@@ -47,6 +72,14 @@ defmodule Injecto do
           init_changeset,
           fn {name, {type, opts}}, acc_changeset ->
             case type do
+              {:array, inner_type} ->
+                if Enum.member?(@scalar_types, inner_type) do
+                  acc_changeset
+                else
+                  required? = Keyword.get(opts, :required, false)
+                  acc_changeset |> cast_embed(name, required: required?)
+                end
+
               {_, _} ->
                 required? = Keyword.get(opts, :required, false)
                 acc_changeset |> cast_embed(name, required: required?)
@@ -138,8 +171,12 @@ defmodule Injecto do
             {:object, module} ->
               {name, module.json_schema()}
 
-            {:array, module} ->
-              {name, %{"type" => "array", "items" => module.json_schema()}}
+            {:array, inner_type} ->
+              if Enum.member?(@scalar_types, inner_type) do
+                {name, %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}}
+              else
+                {name, %{"type" => "array", "items" => inner_type.json_schema()}}
+              end
 
             type ->
               default = %{"type" => Atom.to_string(type)}
@@ -182,6 +219,7 @@ defmodule Injecto do
         props
         |> Enum.filter(fn {_name, {type, opts}} ->
           case type do
+            {:array, inner_type} -> Enum.member?(@scalar_types, inner_type)
             {_, _} -> false
             _ -> true
           end
@@ -221,8 +259,16 @@ defmodule Injecto do
         props
         |> Enum.filter(fn {_name, {type, opts}} ->
           case type do
-            {_, _} -> false
-            _ -> Keyword.get(opts, :required, false)
+            {:array, inner_type} ->
+              if Enum.member?(@scalar_types, inner_type),
+                do: Keyword.get(opts, :required, false),
+                else: false
+
+            {_, _} ->
+              false
+
+            _ ->
+              Keyword.get(opts, :required, false)
           end
         end)
         |> Enum.map(fn {name, _} -> name end)

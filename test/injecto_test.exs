@@ -19,13 +19,13 @@ defmodule InjectoTest do
       naive_datetime: NaiveDateTime.utc_now(),
       naive_datetime_usec: NaiveDateTime.utc_now(),
       utc_datetime: DateTime.utc_now(),
-      utc_datetime_usec: DateTime.utc_now()
+      utc_datetime_usec: DateTime.utc_now(),
+      array_integer: [1, 2, 3],
+      array_string: ["ABC", "DEF"]
     }
 
     assert {:ok, %Dummy{}} = Dummy.parse(valid_map)
     assert {:ok, _} = Dummy.json_schema_validate(valid_map)
-
-    # TODO: test for castable pairs
 
     invalid_pairs = [
       {:binary, 123},
@@ -46,11 +46,12 @@ defmodule InjectoTest do
       {:naive_datetime, :ghi},
       {:naive_datetime_usec, :jkl},
       {:utc_datetime, :mno},
-      {:utc_datetime_usec, :pqr}
+      {:utc_datetime_usec, :pqr},
+      {:array_integer, ["ABC", "DEF"]},
+      {:array_string, [1, 2, 3]}
     ]
 
     for {key, value} <- invalid_pairs do
-      {key, value} |> IO.inspect()
       invalid_map = Map.put(valid_map, key, value)
       assert {:error, _} = Dummy.parse(invalid_map)
       assert {:error, _} = Dummy.json_schema_validate(invalid_map)
