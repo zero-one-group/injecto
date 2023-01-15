@@ -67,4 +67,6 @@ defmodule InjectoTest do
   end
 
   # TODO: test for optionality
+  # TODO: test for parse_many
+  # TODO: test ofr JSON schema options
 end

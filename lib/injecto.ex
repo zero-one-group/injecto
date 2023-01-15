@@ -127,23 +127,6 @@ defmodule Injecto do
       ## ---------------------------------------------------------------------------
       ## JSON Schema
       ## ---------------------------------------------------------------------------
-      # TODO: support for other JSON schema options
-      @type_map %{
-        binary: %{"type" => "string"},
-        binary_id: %{"type" => "string"},
-        float: %{"type" => "number"},
-        decimal: %{"type" => "string"},
-        id: %{"type" => "integer"},
-        map: %{"type" => "object"},
-        date: %{"type" => "string", "format" => "date"},
-        time: %{"type" => "string", "format" => "time"},
-        time_usec: %{"type" => "string", "format" => "time"},
-        naive_datetime: %{"type" => "string", "format" => "date-time"},
-        naive_datetime_usec: %{"type" => "string", "format" => "date-time"},
-        utc_datetime: %{"type" => "string", "format" => "date-time"},
-        utc_datetime_usec: %{"type" => "string", "format" => "date-time"}
-      }
-
       @spec json_schema() :: map()
       def json_schema() do
         %{
@@ -182,12 +165,100 @@ defmodule Injecto do
               {name, enum_schema(values)}
 
             type ->
-              default = %{"type" => Atom.to_string(type)}
-              schema_type = Map.get(@type_map, type, default)
-              {name, schema_type}
+              {name, scalar_schema(type, opts)}
           end
         end)
         |> Enum.into(%{})
+      end
+
+      @spec scalar_schema(atom(), Keyword.t()) :: map()
+      def scalar_schema(type, opts) do
+        case type do
+          :binary -> string_schema(opts)
+          :binary_id -> string_schema(opts)
+          :float -> number_schema(opts)
+          :decimal -> string_schema(opts)
+          :id -> integer_schema(opts)
+          :map -> object_schema(opts)
+          :date -> string_schema(Keyword.put(opts, :format, "date"))
+          :time -> string_schema(Keyword.put(opts, :format, "time"))
+          :time_usec -> string_schema(Keyword.put(opts, :format, "time"))
+          :naive_datetime -> string_schema(Keyword.put(opts, :format, "date-time"))
+          :naive_datetime_usec -> string_schema(Keyword.put(opts, :format, "date-time"))
+          :utc_datetime -> string_schema(Keyword.put(opts, :format, "date-time"))
+          :utc_datetime_usec -> string_schema(Keyword.put(opts, :format, "date-time"))
+          type -> %{"type" => Atom.to_string(type)}
+        end
+      end
+
+      @spec string_schema(Keyword.t()) :: map()
+      def string_schema(opts) do
+        opts =
+          opts
+          |> Keyword.take([:format, :min_length, :max_length, :pattern])
+          |> Enum.map(fn {key, value} ->
+            case key do
+              :min_length -> {"minLength", value}
+              :max_length -> {"maxLength", value}
+              _ -> {Atom.to_string(key), value}
+            end
+          end)
+          |> Enum.into(%{})
+
+        Map.put(opts, "type", "string")
+      end
+
+      @spec object_schema(Keyword.t()) :: map()
+      def object_schema(opts) do
+        opts =
+          opts
+          |> Keyword.take([
+            :additional_properties,
+            :property_names,
+            :min_properties,
+            :max_properties
+          ])
+          |> Enum.map(fn {key, value} ->
+            case key do
+              :additional_properties -> {"additionalProperties", value}
+              :property_names -> {"propertyNames", value}
+              :min_properties -> {"minProperties", value}
+              :max_properties -> {"maxProperties", value}
+              _ -> {Atom.to_string(key), value}
+            end
+          end)
+          |> Enum.into(%{})
+
+        Map.put(opts, "type", "object")
+      end
+
+      @spec integer_schema(Keyword.t()) :: map()
+      def integer_schema(opts) do
+        %{number_schema(opts) | "type" => "integer"}
+      end
+
+      @spec number_schema(Keyword.t()) :: map()
+      def number_schema(opts) do
+        opts =
+          opts
+          |> Keyword.take([
+            :multiple_of,
+            :minimum,
+            :exclusive_minimum,
+            :maximum,
+            :exclusive_maximum
+          ])
+          |> Enum.map(fn {key, value} ->
+            case key do
+              :multiple_of -> {"multipleOf", value}
+              :exclusive_minimum -> {"exclusiveMinimum", value}
+              :exclusive_maximum -> {"exclusiveMaximum", value}
+              _ -> {Atom.to_string(key), value}
+            end
+          end)
+          |> Enum.into(%{})
+
+        Map.put(opts, "type", "number")
       end
 
       @spec enum_schema([atom()] | Keyword.t()) :: map()
