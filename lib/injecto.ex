@@ -1,6 +1,33 @@
 defmodule Injecto do
+  @moduledoc """
+  Injects an Ecto schema and a JSON schema based on the `@properties` map.
+
+  For example, defining the following:
+
+      defmodule Post do
+        @properties %{
+          title: {:string, required: true},
+          description: {:string, []},
+          likes: {:integer, required: true, minimum: 0}
+        }
+        use Injecto
+      end
+
+  injects a number of Ecto and JSON-schema related functions.
+
+  On the Ecto side, `new/0` and `changeset/2` functions can create a `nil`-filled struct
+  and an Ecto changeset respectively. The `parse/2` (`parse_many/2`) functions convert a
+  map (a list of maps) to a changeset-validated struct (list of structs).
+
+  On the JSON-schema side, `json_schema/0` returns a resolved `ExJsonSchema.Scheam.Root`
+  struct, and `validate_json/1` validates a map based on the JSON schema.
+  """
   @callback new() :: struct()
   @callback changeset(struct(), map()) :: %Ecto.Changeset{}
+  @callback parse(map(), Keyword.t()) :: {:ok, struct()} | {:error, any()}
+  @callback parse_many([map()], Keyword.t()) :: {:ok, [struct()]} | {:error, any()}
+  @callback json_schema() :: %ExJsonSchema.Schema.Root{}
+  @callback validate_json(map()) :: {:ok, map()} | {:error, any()}
 
   defmacro __using__(_opts) do
     quote do
@@ -280,7 +307,7 @@ defmodule Injecto do
             "x-struct" => Post
           }
       """
-      @spec json_schema() :: map()
+      @spec json_schema() :: %ExJsonSchema.Schema.Root{}
       def json_schema() do
         %{
           "type" => "object",
