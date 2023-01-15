@@ -176,5 +176,9 @@ defmodule InjectoTest do
       assert {:error, _} = ParentDummy.parse(invalid_map)
       assert {:error, _} = ParentDummy.validate_json(invalid_map)
     end
+
+    invalid_json = %{valid_map | embed_one: %{x: 0, y: 0, z: 0, extra: 0}}
+    assert {:ok, _} = ParentDummy.parse(invalid_json)
+    assert {:error, _} = ParentDummy.validate_json(invalid_json)
   end
 end

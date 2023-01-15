@@ -62,7 +62,7 @@ end
 defmodule ParentDummy do
   @properties %{
     scalar: {:string, required: true},
-    embed_one: {{:object, __MODULE__.ChildDummy}, required: true},
+    embed_one: {{:object, __MODULE__.ChildDummy}, required: true, additional_properties: false},
     embed_many: {{:array, __MODULE__.ChildDummy}, required: true}
   }
   use Injecto

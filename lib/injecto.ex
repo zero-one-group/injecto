@@ -157,7 +157,7 @@ defmodule Injecto do
         |> Enum.map(fn {name, {type, opts}} ->
           schema =
             case type do
-              {:object, module} -> module.json_schema().schema
+              {:object, module} -> Map.merge(object_schema(opts), module.json_schema().schema)
               {:array, inner_type} -> array_schema({:array, inner_type}, opts)
               {:enum, values} -> enum_schema({:enum, values}, opts)
               type -> scalar_schema(type, opts)
