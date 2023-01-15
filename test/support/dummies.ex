@@ -25,3 +25,11 @@ defmodule Dummy do
   }
   use Injecto
 end
+
+defmodule OptionalDummy do
+  @properties %{
+    required: {:integer, required: true},
+    optional: {:integer, required: false}
+  }
+  use Injecto
+end

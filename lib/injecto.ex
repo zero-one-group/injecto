@@ -154,32 +154,45 @@ defmodule Injecto do
       defp json_schema_properties(props) do
         props
         |> Enum.map(fn {name, {type, opts}} ->
-          name = Atom.to_string(name)
+          schema =
+            case type do
+              {:object, module} -> module.json_schema()
+              {:array, inner_type} -> array_schema({:array, inner_type}, opts)
+              {:enum, values} -> enum_schema({:enum, values}, opts)
+              type -> scalar_schema(type, opts)
+            end
 
-          case type do
-            {:object, module} ->
-              {name, module.json_schema()}
+          schema =
+            if Keyword.get(opts, :required),
+              do: schema,
+              else: %{"anyOf" => [schema, %{"type" => "null"}]}
 
-            {:array, inner_type} ->
-              case inner_type do
-                {:enum, values} ->
-                  {name, %{"type" => "array", "items" => enum_schema(values)}}
-
-                inner_type when inner_type in @scalar_types ->
-                  {name, %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}}
-
-                _ ->
-                  {name, %{"type" => "array", "items" => inner_type.json_schema()}}
-              end
-
-            {:enum, values} ->
-              {name, enum_schema(values)}
-
-            type ->
-              {name, scalar_schema(type, opts)}
-          end
+          {Atom.to_string(name), schema}
         end)
         |> Enum.into(%{})
+      end
+
+      @spec array_schema({atom(), any()}, Keyword.t()) :: map()
+      defp array_schema({:array, inner_type}, opts) do
+        case inner_type do
+          {:enum, values} ->
+            %{"type" => "array", "items" => enum_schema({:enum, values}, opts)}
+
+          inner_type when inner_type in @scalar_types ->
+            %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}
+
+          _ ->
+            %{"type" => "array", "items" => inner_type.json_schema()}
+        end
+      end
+
+      @spec enum_schema({:enum, [atom()] | Keyword.t()}, Keyword.t()) :: map()
+      defp enum_schema({:enum, values}, _opts) do
+        if Keyword.keyword?(values) do
+          %{"type" => "integer", "enum" => Keyword.values(values)}
+        else
+          %{"type" => "string", "enum" => Enum.map(values, &Atom.to_string/1)}
+        end
       end
 
       @spec scalar_schema(atom(), Keyword.t()) :: map()
@@ -270,15 +283,6 @@ defmodule Injecto do
           |> Enum.into(%{})
 
         Map.put(opts, "type", "number")
-      end
-
-      @spec enum_schema([atom()] | Keyword.t()) :: map()
-      defp enum_schema(values) do
-        if Keyword.keyword?(values) do
-          %{"type" => "integer", "enum" => Keyword.values(values)}
-        else
-          %{"type" => "string", "enum" => Enum.map(values, &Atom.to_string/1)}
-        end
       end
 
       @spec validate_json(map()) :: {:ok, map()} | {:error, any()}

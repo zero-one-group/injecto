@@ -2,7 +2,7 @@ defmodule InjectoTest do
   use ExUnit.Case
   doctest Injecto
 
-  test "basic struct with scalar Ecto types" do
+  test "basic struct with all Ecto types" do
     valid_map = %{
       binary: "xyz",
       binary_id: "1",
@@ -66,7 +66,28 @@ defmodule InjectoTest do
     end
   end
 
-  # TODO: test for optionality
+  test "field optionality" do
+    for valid_map <- [
+          %{required: 1, optional: 1},
+          %{required: 1, optional: nil},
+          %{required: 1}
+        ] do
+      assert {:ok, %OptionalDummy{}} = OptionalDummy.parse(valid_map)
+      assert {:ok, _} = OptionalDummy.validate_json(valid_map)
+    end
+
+    for invalid_map <- [
+          %{required: nil},
+          %{required: nil, optional: 1},
+          %{optional: 1},
+          %{optional: nil},
+          %{}
+        ] do
+      assert {:error, _} = OptionalDummy.parse(invalid_map)
+      assert {:error, _} = OptionalDummy.validate_json(invalid_map)
+    end
+  end
+
   # TODO: test for parse_many
   # TODO: test ofr JSON schema options
 end
