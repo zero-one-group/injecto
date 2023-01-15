@@ -88,6 +88,27 @@ defmodule InjectoTest do
     end
   end
 
-  # TODO: test for parse_many
-  # TODO: test ofr JSON schema options
+  test "parse_many" do
+    valid_maps = [
+      %{x: 0, y: 0},
+      %{x: 0, y: nil},
+      %{x: 0}
+    ]
+
+    assert {:ok, [%PointDummy{} | _]} = PointDummy.parse_many(valid_maps)
+
+    invalid_maps = [
+      %{x: nil},
+      %{equired: nil, y: 1},
+      %{y: 1},
+      %{y: nil},
+      %{}
+    ]
+
+    assert {:error, _} = PointDummy.parse_many(invalid_maps)
+    assert {:error, _} = PointDummy.parse_many(valid_maps ++ invalid_maps)
+    assert {:error, _} = PointDummy.parse_many(valid_maps ++ Enum.take(invalid_maps, 1))
+  end
+
+  # TODO: test JSON schema options
 end

@@ -33,3 +33,11 @@ defmodule OptionalDummy do
   }
   use Injecto
 end
+
+defmodule PointDummy do
+  @properties %{
+    x: {:integer, required: true},
+    y: {:integer, required: false}
+  }
+  use Injecto
+end
