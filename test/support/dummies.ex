@@ -58,3 +58,21 @@ defmodule KeywordDummy do
   }
   use Injecto
 end
+
+defmodule ParentDummy do
+  @properties %{
+    scalar: {:string, required: true},
+    embed_one: {{:object, __MODULE__.ChildDummy}, required: true},
+    embed_many: {{:array, __MODULE__.ChildDummy}, required: true}
+  }
+  use Injecto
+
+  defmodule ChildDummy do
+    @properties %{
+      x: {:integer, required: true},
+      y: {:integer, required: true},
+      z: {:integer, required: true}
+    }
+    use Injecto
+  end
+end

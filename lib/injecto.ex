@@ -74,7 +74,8 @@ defmodule Injecto do
           |> cast(map, all_non_embeds())
           |> validate_required(required_non_embeds())
 
-        embedded_properties = Enum.filter(properties(), &embedded?/1)
+        embedded_properties =
+          Enum.filter(properties(), fn {_name, {type, _opt}} -> embedded?(type) end)
 
         Enum.reduce(
           embedded_properties,
@@ -156,7 +157,7 @@ defmodule Injecto do
         |> Enum.map(fn {name, {type, opts}} ->
           schema =
             case type do
-              {:object, module} -> module.json_schema()
+              {:object, module} -> module.json_schema().schema
               {:array, inner_type} -> array_schema({:array, inner_type}, opts)
               {:enum, values} -> enum_schema({:enum, values}, opts)
               type -> scalar_schema(type, opts)
@@ -183,7 +184,7 @@ defmodule Injecto do
               %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}
 
             _ ->
-              %{"type" => "array", "items" => inner_type.json_schema()}
+              %{"type" => "array", "items" => inner_type.json_schema().schema}
           end
 
         opts =

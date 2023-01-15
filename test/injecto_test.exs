@@ -153,5 +153,28 @@ defmodule InjectoTest do
     end
   end
 
-  # TODO: embedded schemas + object's JSON schema options
+  test "embedded schemas" do
+    valid_map = %{
+      scalar: "abc",
+      embed_one: %{x: 0, y: 0, z: 0},
+      embed_many: 1..10 |> Enum.map(fn i -> %{x: i, y: i, z: i} end)
+    }
+
+    assert {:ok, %ParentDummy{} = parent} = ParentDummy.parse(valid_map)
+    assert %ParentDummy.ChildDummy{} = parent.embed_one
+    assert [%ParentDummy.ChildDummy{} | _] = parent.embed_many
+    assert {:ok, _} = ParentDummy.validate_json(valid_map)
+
+    invalid_maps = [
+      %{valid_map | scalar: 1},
+      %{valid_map | embed_one: %{}},
+      %{valid_map | embed_many: [%{}]},
+      %{valid_map | embed_many: ["abc"]}
+    ]
+
+    for invalid_map <- invalid_maps do
+      assert {:error, _} = ParentDummy.parse(invalid_map)
+      assert {:error, _} = ParentDummy.validate_json(invalid_map)
+    end
+  end
 end
