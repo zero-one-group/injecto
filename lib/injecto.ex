@@ -259,6 +259,27 @@ defmodule Injecto do
       ## ---------------------------------------------------------------------------
       ## JSON Schema
       ## ---------------------------------------------------------------------------
+      @doc """
+      #{@example_definition}
+
+      Validates and returns an `ex_json_schema` schema:
+
+          iex> %ExJsonSchema.Schema.Root{schema: schema} = Post.json_schema()
+          iex> schema
+          %{
+            "properties" => %{
+              "description" => %{
+                "anyOf" => [%{"type" => "string"}, %{"type" => "null"}]
+              },
+              "likes" => %{"minimum" => 0, "type" => "integer"},
+              "title" => %{"type" => "string"}
+            },
+            "required" => ["likes", "title"],
+            "title" => "Elixir.Post",
+            "type" => "object",
+            "x-struct" => Post
+          }
+      """
       @spec json_schema() :: map()
       def json_schema() do
         %{
@@ -424,6 +445,23 @@ defmodule Injecto do
         Map.put(opts, "type", "number")
       end
 
+      @doc """
+      #{@example_definition}
+
+      Serialises a map, and validates the deserialised result against the JSON schema:
+
+          iex> valid_post = %{title: "A", likes: 1}
+          iex> {:ok, ^valid_post} = Post.validate_json(valid_post)
+
+          iex> invalid_post = %{title: 123, likes: -1}
+          iex> {:error, errors} = Post.validate_json(invalid_post)
+          iex> Enum.sort(errors)
+          [
+            {"Expected the value to be >= 0", "#/likes"},
+            {"Type mismatch. Expected String but got Integer.", "#/title"}
+          ]
+
+      """
       @spec validate_json(map()) :: {:ok, map()} | {:error, any()}
       def validate_json(map) do
         with {:ok, encoded} <- Jason.encode(map),
@@ -436,33 +474,43 @@ defmodule Injecto do
       ## ---------------------------------------------------------------------------
       ## Utilities
       ## ---------------------------------------------------------------------------
+      @doc """
+      Returns the module attribute `@properties`.
+
+        iex> Post.properties()
+        %{
+          description: {:string, []},
+          likes: {:integer, [required: true, minimum: 0]},
+          title: {:string, [required: true]}
+        }
+      """
       @spec properties() :: map()
       def properties(), do: @properties
 
       @spec all_fields() :: [atom()]
-      def all_fields(), do: all_fields(properties())
+      defp all_fields(), do: all_fields(properties())
 
       @spec all_fields(map()) :: [atom()]
-      def all_fields(props) do
+      defp all_fields(props) do
         props
         |> Enum.map(fn {name, _} -> name end)
       end
 
       @spec all_non_embeds() :: [atom()]
-      def all_non_embeds(), do: all_non_embeds(properties())
+      defp all_non_embeds(), do: all_non_embeds(properties())
 
       @spec all_non_embeds(map()) :: [atom()]
-      def all_non_embeds(props) do
+      defp all_non_embeds(props) do
         props
         |> Enum.filter(fn {_name, {type, _opts}} -> !embedded?(type) end)
         |> Enum.map(fn {name, _} -> name end)
       end
 
       @spec optional_fields() :: [atom()]
-      def optional_fields(), do: optional_fields(properties())
+      defp optional_fields(), do: optional_fields(properties())
 
       @spec optional_fields(map()) :: [atom()]
-      def optional_fields(props) do
+      defp optional_fields(props) do
         props
         |> Enum.filter(fn {_name, {_type, opts}} ->
           !Keyword.get(opts, :required, false)
@@ -471,10 +519,10 @@ defmodule Injecto do
       end
 
       @spec required_fields() :: [atom()]
-      def required_fields(), do: required_fields(properties())
+      defp required_fields(), do: required_fields(properties())
 
       @spec required_fields(map()) :: [atom()]
-      def required_fields(props) do
+      defp required_fields(props) do
         props
         |> Enum.filter(fn {_name, {_type, opts}} ->
           Keyword.get(opts, :required, false)
@@ -483,10 +531,10 @@ defmodule Injecto do
       end
 
       @spec required_non_embeds() :: [atom()]
-      def required_non_embeds(), do: required_non_embeds(properties())
+      defp required_non_embeds(), do: required_non_embeds(properties())
 
       @spec required_non_embeds(map()) :: [atom()]
-      def required_non_embeds(props) do
+      defp required_non_embeds(props) do
         props
         |> Enum.filter(fn {_name, {type, _opts}} -> !embedded?(type) end)
         |> Enum.filter(fn {_name, {_type, opts}} ->
