@@ -47,6 +47,9 @@ defmodule Injecto do
                 do: field(name, {:array, inner_type}),
                 else: embeds_many(name, inner_type)
 
+            {:enum, values} ->
+              field(name, Ecto.Enum, values: values)
+
             type ->
               field(name, type)
           end
@@ -79,6 +82,9 @@ defmodule Injecto do
                   required? = Keyword.get(opts, :required, false)
                   acc_changeset |> cast_embed(name, required: required?)
                 end
+
+              {:enum, _} ->
+                acc_changeset
 
               {_, _} ->
                 required? = Keyword.get(opts, :required, false)
@@ -131,7 +137,6 @@ defmodule Injecto do
       ## ---------------------------------------------------------------------------
       ## JSON Schema
       ## ---------------------------------------------------------------------------
-      # TODO: complete translation to JSON schema types
       # TODO: support for other JSON schema options
       @type_map %{
         binary: %{"type" => "string"},
@@ -178,6 +183,14 @@ defmodule Injecto do
                 {name, %{"type" => "array", "items" => inner_type.json_schema()}}
               end
 
+            # TODO: handle array of enums
+            {:enum, values} ->
+              if Keyword.keyword?(values) do
+                {name, %{"type" => "integer", "enum" => Keyword.values(values)}}
+              else
+                {name, %{"type" => "string", "enum" => Enum.map(values, &Atom.to_string/1)}}
+              end
+
             type ->
               default = %{"type" => Atom.to_string(type)}
               schema_type = Map.get(@type_map, type, default)
@@ -219,6 +232,7 @@ defmodule Injecto do
         props
         |> Enum.filter(fn {_name, {type, opts}} ->
           case type do
+            {:enum, _} -> true
             {:array, inner_type} -> Enum.member?(@scalar_types, inner_type)
             {_, _} -> false
             _ -> true
@@ -259,6 +273,9 @@ defmodule Injecto do
         props
         |> Enum.filter(fn {_name, {type, opts}} ->
           case type do
+            {:enum, _} ->
+              Keyword.get(opts, :required, false)
+
             {:array, inner_type} ->
               if Enum.member?(@scalar_types, inner_type),
                 do: Keyword.get(opts, :required, false),

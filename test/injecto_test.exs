@@ -21,7 +21,8 @@ defmodule InjectoTest do
       utc_datetime: DateTime.utc_now(),
       utc_datetime_usec: DateTime.utc_now(),
       array_integer: [1, 2, 3],
-      array_string: ["ABC", "DEF"]
+      array_string: ["ABC", "DEF"],
+      enum_abc: :b
     }
 
     assert {:ok, %Dummy{}} = Dummy.parse(valid_map)
@@ -48,7 +49,8 @@ defmodule InjectoTest do
       {:utc_datetime, :mno},
       {:utc_datetime_usec, :pqr},
       {:array_integer, ["ABC", "DEF"]},
-      {:array_string, [1, 2, 3]}
+      {:array_string, [1, 2, 3]},
+      {:enum_abc, :d}
     ]
 
     for {key, value} <- invalid_pairs do

@@ -17,7 +17,8 @@ defmodule Dummy do
     utc_datetime: {:utc_datetime, required: true},
     utc_datetime_usec: {:utc_datetime_usec, required: true},
     array_integer: {{:array, :integer}, required: true},
-    array_string: {{:array, :string}, required: true}
+    array_string: {{:array, :string}, required: true},
+    enum_abc: {{:enum, [:a, :b, :c]}, required: true}
   }
   use Injecto
 end
