@@ -33,7 +33,6 @@ defmodule Injecto do
       import Ecto.Changeset
 
       # TODO: support for non-embedded schemas
-      # TODO: support for enums
       @primary_key false
       embedded_schema do
         @properties
@@ -43,9 +42,15 @@ defmodule Injecto do
               embeds_one(name, module)
 
             {:array, inner_type} ->
-              if Enum.member?(@scalar_types, inner_type),
-                do: field(name, {:array, inner_type}),
-                else: embeds_many(name, inner_type)
+              case inner_type do
+                {:enum, values} ->
+                  field(name, {:array, Ecto.Enum}, values: values)
+
+                _ ->
+                  if Enum.member?(@scalar_types, inner_type),
+                    do: field(name, {:array, inner_type}),
+                    else: embeds_many(name, inner_type)
+              end
 
             {:enum, values} ->
               field(name, Ecto.Enum, values: values)
@@ -70,29 +75,14 @@ defmodule Injecto do
           |> cast(map, all_non_embeds())
           |> validate_required(required_non_embeds())
 
+        embedded_properties = Enum.filter(properties(), &embedded?/1)
+
         Enum.reduce(
-          properties(),
+          embedded_properties,
           init_changeset,
-          fn {name, {type, opts}}, acc_changeset ->
-            case type do
-              {:array, inner_type} ->
-                if Enum.member?(@scalar_types, inner_type) do
-                  acc_changeset
-                else
-                  required? = Keyword.get(opts, :required, false)
-                  acc_changeset |> cast_embed(name, required: required?)
-                end
-
-              {:enum, _} ->
-                acc_changeset
-
-              {_, _} ->
-                required? = Keyword.get(opts, :required, false)
-                acc_changeset |> cast_embed(name, required: required?)
-
-              _ ->
-                acc_changeset
-            end
+          fn {name, {_type, opts}}, acc_changeset ->
+            required? = Keyword.get(opts, :required, false)
+            acc_changeset |> cast_embed(name, required: required?)
           end
         )
       end
@@ -177,19 +167,19 @@ defmodule Injecto do
               {name, module.json_schema()}
 
             {:array, inner_type} ->
-              if Enum.member?(@scalar_types, inner_type) do
-                {name, %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}}
-              else
-                {name, %{"type" => "array", "items" => inner_type.json_schema()}}
+              case inner_type do
+                {:enum, values} ->
+                  {name, %{"type" => "array", "items" => enum_schema(values)}}
+
+                inner_type when inner_type in @scalar_types ->
+                  {name, %{"type" => "array", "items" => %{"type" => Atom.to_string(inner_type)}}}
+
+                _ ->
+                  {name, %{"type" => "array", "items" => inner_type.json_schema()}}
               end
 
-            # TODO: handle array of enums
             {:enum, values} ->
-              if Keyword.keyword?(values) do
-                {name, %{"type" => "integer", "enum" => Keyword.values(values)}}
-              else
-                {name, %{"type" => "string", "enum" => Enum.map(values, &Atom.to_string/1)}}
-              end
+              {name, enum_schema(values)}
 
             type ->
               default = %{"type" => Atom.to_string(type)}
@@ -198,6 +188,15 @@ defmodule Injecto do
           end
         end)
         |> Enum.into(%{})
+      end
+
+      @spec enum_schema([atom()] | Keyword.t()) :: map()
+      def enum_schema(values) do
+        if Keyword.keyword?(values) do
+          %{"type" => "integer", "enum" => Keyword.values(values)}
+        else
+          %{"type" => "string", "enum" => Enum.map(values, &Atom.to_string/1)}
+        end
       end
 
       @spec json_schema_validate(map()) :: {:ok, map()} | {:error, any()}
@@ -230,14 +229,7 @@ defmodule Injecto do
       @spec all_non_embeds(map()) :: [atom()]
       def all_non_embeds(props) do
         props
-        |> Enum.filter(fn {_name, {type, opts}} ->
-          case type do
-            {:enum, _} -> true
-            {:array, inner_type} -> Enum.member?(@scalar_types, inner_type)
-            {_, _} -> false
-            _ -> true
-          end
-        end)
+        |> Enum.filter(fn {_name, {type, _opts}} -> !embedded?(type) end)
         |> Enum.map(fn {name, _} -> name end)
       end
 
@@ -271,24 +263,30 @@ defmodule Injecto do
       @spec required_non_embeds(map()) :: [atom()]
       def required_non_embeds(props) do
         props
-        |> Enum.filter(fn {_name, {type, opts}} ->
-          case type do
-            {:enum, _} ->
-              Keyword.get(opts, :required, false)
-
-            {:array, inner_type} ->
-              if Enum.member?(@scalar_types, inner_type),
-                do: Keyword.get(opts, :required, false),
-                else: false
-
-            {_, _} ->
-              false
-
-            _ ->
-              Keyword.get(opts, :required, false)
-          end
+        |> Enum.filter(fn {_name, {type, _opts}} -> !embedded?(type) end)
+        |> Enum.filter(fn {_name, {_type, opts}} ->
+          Keyword.get(opts, :required, false)
         end)
         |> Enum.map(fn {name, _} -> name end)
+      end
+
+      def embedded?(type) do
+        case type do
+          {:object, _} ->
+            true
+
+          {:array, inner_type} ->
+            case inner_type do
+              {:enum, values} -> false
+              _ -> !Enum.member?(@scalar_types, inner_type)
+            end
+
+          {:enum, values} ->
+            false
+
+          _ ->
+            false
+        end
       end
     end
 

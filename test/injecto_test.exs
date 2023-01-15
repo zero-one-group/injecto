@@ -23,7 +23,9 @@ defmodule InjectoTest do
       array_integer: [1, 2, 3],
       array_string: ["ABC", "DEF"],
       enum_abc: :b,
-      enum_123: 1
+      enum_123: 1,
+      array_enum_abc: [:a, :b, :c],
+      array_enum_123: [1, 2, 3]
     }
 
     assert {:ok, %Dummy{}} = Dummy.parse(valid_map)
@@ -52,7 +54,9 @@ defmodule InjectoTest do
       {:array_integer, ["ABC", "DEF"]},
       {:array_string, [1, 2, 3]},
       {:enum_abc, :d},
-      {:enum_123, 4}
+      {:enum_123, 4},
+      {:array_enum_abc, [:b, :c, :d]},
+      {:array_enum_123, [2, 3, 4]}
     ]
 
     for {key, value} <- invalid_pairs do

@@ -19,7 +19,9 @@ defmodule Dummy do
     array_integer: {{:array, :integer}, required: true},
     array_string: {{:array, :string}, required: true},
     enum_abc: {{:enum, [:a, :b, :c]}, required: true},
-    enum_123: {{:enum, [a: 1, b: 2, c: 3]}, required: true}
+    enum_123: {{:enum, [a: 1, b: 2, c: 3]}, required: true},
+    array_enum_abc: {{:array, {:enum, [:a, :b, :c]}}, required: true},
+    array_enum_123: {{:array, {:enum, [a: 1, b: 2, c: 3]}}, required: true}
   }
   use Injecto
 end
