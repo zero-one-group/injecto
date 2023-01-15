@@ -1,6 +1,6 @@
 defmodule InjectoTest do
   use ExUnit.Case
-  doctest Injecto
+  doctest Dummy
 
   test "basic struct with all Ecto types" do
     valid_map = %{

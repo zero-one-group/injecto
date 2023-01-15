@@ -7,6 +7,19 @@ defmodule Injecto do
       @derive {Jason.Encoder, only: Map.keys(@properties)}
       @behaviour Injecto
 
+      @example_definition """
+      Given the following definition:
+
+          defmodule Post do
+            @properties %{
+              title: {:string, required: true},
+              description: {:string, []},
+              likes: {:integer, required: true, minimum: 0}
+            }
+            use Injecto
+          end
+      """
+
       @scalar_types [
         :binary,
         :binary_id,
@@ -60,9 +73,42 @@ defmodule Injecto do
         end)
       end
 
+      @doc """
+      #{@example_definition}
+
+      Returns the struct with the fields populated with `nil`s:
+
+          iex> Post.new()
+          %Post{title: nil, description: nil, likes: nil}
+      """
       @spec new() :: %__MODULE__{}
       def new, do: %__MODULE__{}
 
+      @doc """
+          iex> with %Ecto.Changeset{} = #{__MODULE__}.changeset(%#{__MODULE__}{}, %{}), do: :ok
+          :ok
+      """
+
+      @doc """
+      #{@example_definition}
+
+      Returns an Ecto changeset:
+
+          iex> %Ecto.Changeset{valid?: false, errors: errors} = Post.changeset(%Post{}, %{})
+          iex> errors
+          [
+            likes: {"can't be blank", [validation: :required]},
+            title: {"can't be blank", [validation: :required]}
+          ]
+
+          iex> post = %{title: "Valid", likes: 10}
+          iex> %Ecto.Changeset{valid?: true, errors: []} = Post.changeset(%Post{}, post)
+
+      Note that JSON schema constraints such as `minimum: 0` are not caught by the Ecto changeset:
+
+          iex> post = %{title: "Invalid", likes: -1}
+          iex> %Ecto.Changeset{valid?: true, errors: []} = Post.changeset(%Post{}, post)
+      """
       @spec changeset(struct(), map()) :: %Ecto.Changeset{}
       def changeset(struct, map), do: base_changeset(struct, map)
       defoverridable changeset: 2
@@ -87,6 +133,32 @@ defmodule Injecto do
         )
       end
 
+      @doc """
+      #{@example_definition}
+
+      Returns an Ecto changeset:
+
+          iex> {:error, errors} = Post.parse(%{})
+          iex> errors
+          %{
+            likes: [{"can't be blank", [validation: :required]}],
+            title: [{"can't be blank", [validation: :required]}]
+          }
+
+          iex> post = %{title: "Valid", likes: 10}
+          iex> {:ok, %Post{title: "Valid", likes: 10}} = Post.parse(post)
+
+      Note that JSON schema constraints such as `minimum: 0` are not caught by `parse/2` by
+      default. Pass in the option `:validate_json` for JSON schema validation:
+
+          iex> post = %{title: "Invalid", likes: -1}
+          iex> {:ok, %Post{}} = Post.parse(post)
+
+          iex> post = %{title: "Invalid", likes: -1}
+          iex> {:error, errors} = Post.parse(post, validate_json: true)
+          iex> errors
+          [{"Expected the value to be >= 0", "#/likes"}]
+      """
       @type result :: {:ok, %__MODULE__{}} | {:error, any()}
       @spec parse(map(), Keyword.t()) :: result()
       def parse(input, opts \\ []) do
@@ -115,6 +187,54 @@ defmodule Injecto do
         end
       end
 
+      @doc """
+      #{@example_definition}
+
+      Invokes `parse/2` on a collection of maps, and returns `:ok` if all maps can be
+      correctly parsed:
+
+          iex> valid_posts = [%{title: "A", likes: 1}, %{title: "B", likes: 2}]
+          iex> {:ok, posts} = Post.parse_many(valid_posts)
+          iex> Enum.sort_by(posts, &(&1.title))
+          [
+            %Post{title: "A", likes: 1, description: nil},
+            %Post{title: "B", likes: 2, description: nil}
+          ]
+
+          iex> invalid_posts = [%{title: 1, likes: "A"}, %{title: 2, likes: "B"}]
+          iex> {:error, errors} = Post.parse_many(invalid_posts)
+          iex> errors
+          [
+            %{
+              likes: [{"is invalid", [type: :integer, validation: :cast]}],
+              title: [{"is invalid", [type: :string, validation: :cast]}]
+            },
+            %{
+              likes: [{"is invalid", [type: :integer, validation: :cast]}],
+              title: [{"is invalid", [type: :string, validation: :cast]}]
+            }
+          ]
+
+          iex> valid_posts = [%{title: "A", likes: 1}, %{title: "B", likes: 2}]
+          iex> invalid_posts = [%{title: 1, likes: "A"}]
+          iex> {:error, errors} = Post.parse_many(valid_posts ++ invalid_posts)
+          iex> errors
+          [
+            %{
+              likes: [{"is invalid", [type: :integer, validation: :cast]}],
+              title: [{"is invalid", [type: :string, validation: :cast]}]
+            }
+          ]
+
+      Note that JSON schema constraints such as `minimum: 0` are not caught by `parse` by
+      default. Pass in the option `:validate_json` for JSON schema validation:
+
+          iex> posts = [%{title: "A", likes: -1}]
+          iex> {:ok, _} = Post.parse_many(posts)
+          iex> {:error, errors} = Post.parse_many(posts, validate_json: true)
+          iex> errors
+          [[{"Expected the value to be >= 0", "#/likes"}]]
+      """
       @type results :: {:ok, [%__MODULE__{}]} | {:error, any()}
       @spec parse_many([map()], Keyword.t()) :: results()
       def parse_many(inputs, opts \\ []) do
