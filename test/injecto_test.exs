@@ -29,7 +29,7 @@ defmodule InjectoTest do
     }
 
     assert {:ok, %Dummy{}} = Dummy.parse(valid_map)
-    assert {:ok, _} = Dummy.json_schema_validate(valid_map)
+    assert {:ok, _} = Dummy.validate_json(valid_map)
 
     invalid_pairs = [
       {:binary, 123},
@@ -62,7 +62,7 @@ defmodule InjectoTest do
     for {key, value} <- invalid_pairs do
       invalid_map = Map.put(valid_map, key, value)
       assert {:error, _} = Dummy.parse(invalid_map)
-      assert {:error, _} = Dummy.json_schema_validate(invalid_map)
+      assert {:error, _} = Dummy.validate_json(invalid_map)
     end
   end
 

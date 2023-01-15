@@ -32,7 +32,6 @@ defmodule Injecto do
       use Ecto.Schema
       import Ecto.Changeset
 
-      # TODO: support for non-embedded schemas
       @primary_key false
       embedded_schema do
         @properties
@@ -69,7 +68,7 @@ defmodule Injecto do
       defoverridable changeset: 2
 
       @spec base_changeset(struct(), map()) :: %Ecto.Changeset{}
-      def base_changeset(struct, map) do
+      defp base_changeset(struct, map) do
         init_changeset =
           struct
           |> cast(map, all_non_embeds())
@@ -88,8 +87,20 @@ defmodule Injecto do
       end
 
       @type result :: {:ok, %__MODULE__{}} | {:error, any()}
-      @spec parse(map()) :: result()
-      def parse(input) do
+      @spec parse(map(), Keyword.t()) :: result()
+      def parse(input, opts \\ []) do
+        validate_fn =
+          if Keyword.get(opts, :validate_json),
+            do: &validate_json/1,
+            else: fn input -> {:ok, input} end
+
+        with {:ok, _} <- validate_fn.(input) do
+          parse_ecto(input)
+        end
+      end
+
+      @spec parse_ecto(map()) :: result()
+      defp parse_ecto(input) do
         changeset = __MODULE__.changeset(__MODULE__.new(), input)
 
         if changeset.valid? do
@@ -104,14 +115,14 @@ defmodule Injecto do
       end
 
       @type results :: {:ok, [%__MODULE__{}]} | {:error, any()}
-      @spec parse_many([map()]) :: results()
-      def parse_many(inputs) do
+      @spec parse_many([map()], Keyword.t()) :: results()
+      def parse_many(inputs, opts \\ []) do
         reduced =
           Enum.reduce(
             inputs,
             %{oks: [], errors: []},
             fn input, acc ->
-              case parse(input) do
+              case parse(input, opts) do
                 {:ok, ok} -> %{acc | oks: [ok | acc[:oks]]}
                 {:error, error} -> %{acc | errors: [error | acc[:errors]]}
               end
@@ -140,7 +151,7 @@ defmodule Injecto do
       end
 
       @spec json_schema_properties(map()) :: map()
-      def json_schema_properties(props) do
+      defp json_schema_properties(props) do
         props
         |> Enum.map(fn {name, {type, opts}} ->
           name = Atom.to_string(name)
@@ -172,7 +183,7 @@ defmodule Injecto do
       end
 
       @spec scalar_schema(atom(), Keyword.t()) :: map()
-      def scalar_schema(type, opts) do
+      defp scalar_schema(type, opts) do
         case type do
           :binary -> string_schema(opts)
           :binary_id -> string_schema(opts)
@@ -192,7 +203,7 @@ defmodule Injecto do
       end
 
       @spec string_schema(Keyword.t()) :: map()
-      def string_schema(opts) do
+      defp string_schema(opts) do
         opts =
           opts
           |> Keyword.take([:format, :min_length, :max_length, :pattern])
@@ -209,7 +220,7 @@ defmodule Injecto do
       end
 
       @spec object_schema(Keyword.t()) :: map()
-      def object_schema(opts) do
+      defp object_schema(opts) do
         opts =
           opts
           |> Keyword.take([
@@ -233,12 +244,12 @@ defmodule Injecto do
       end
 
       @spec integer_schema(Keyword.t()) :: map()
-      def integer_schema(opts) do
+      defp integer_schema(opts) do
         %{number_schema(opts) | "type" => "integer"}
       end
 
       @spec number_schema(Keyword.t()) :: map()
-      def number_schema(opts) do
+      defp number_schema(opts) do
         opts =
           opts
           |> Keyword.take([
@@ -262,7 +273,7 @@ defmodule Injecto do
       end
 
       @spec enum_schema([atom()] | Keyword.t()) :: map()
-      def enum_schema(values) do
+      defp enum_schema(values) do
         if Keyword.keyword?(values) do
           %{"type" => "integer", "enum" => Keyword.values(values)}
         else
@@ -270,8 +281,8 @@ defmodule Injecto do
         end
       end
 
-      @spec json_schema_validate(map()) :: {:ok, map()} | {:error, any()}
-      def json_schema_validate(map) do
+      @spec validate_json(map()) :: {:ok, map()} | {:error, any()}
+      def validate_json(map) do
         with {:ok, encoded} <- Jason.encode(map),
              {:ok, json} <- Jason.decode(encoded),
              :ok <- ExJsonSchema.Validator.validate(json_schema(), json) do
@@ -341,7 +352,8 @@ defmodule Injecto do
         |> Enum.map(fn {name, _} -> name end)
       end
 
-      def embedded?(type) do
+      @spec embedded?(any()) :: boolean()
+      defp embedded?(type) do
         case type do
           {:object, _} ->
             true
@@ -360,7 +372,5 @@ defmodule Injecto do
         end
       end
     end
-
-    # TODO: add .generate(opts \\ []) function
   end
 end
