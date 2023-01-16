@@ -27,7 +27,8 @@ defmodule Injecto.MixProject do
       {:ex_json_schema, "~> 0.9.2"},
       {:jason, "~> 1.4"},
       {:decimal, "~> 2.0"},
-      {:ex_doc, "~> 0.27", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.27", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false}
     ]
   end
 end
