@@ -9,9 +9,25 @@ defmodule Injecto.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      dialyzer: [
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
-      ]
+      dialyzer: [plt_file: {:no_warn, "priv/plts/dialyzer.plt"}],
+      description: description(),
+      package: package()
+    ]
+  end
+
+  defp description do
+    "Combine Ecto schema and JSON schema with minimal boilerplates."
+  end
+
+  defp package do
+    [
+      files: ["lib", "mix.exs", "README.md"],
+      maintainers: ["Anthony Khong"],
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/zero-one-group/injecto",
+        "Docs" => "https://hexdocs.pm/injecto/"
+      }
     ]
   end
 
