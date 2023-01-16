@@ -1,8 +1,19 @@
 # TODO: tweak callback docs to have summaries.
 # TODO: write more on motivation on the moduledoc.
 defmodule Injecto do
-  @example_definition """
-  Given the following definition:
+  @moduledoc """
+  A behaviour module that defines both an Ecto schema and a JSON schema.
+
+  An Injecto schema uses the module attribute `@properties` to define an Ecto schema and
+  a JSON schema based on the `ex_json_schema` library. In doing so, it also injects a
+  `Jason` encoder implementation. The advantage of using an Injecto schema is to get a
+  consistent parsing and validating with Ecto changesets and JSON schema respectively
+  with minimal boilerplates. This consistency is helpful when working with struct-based
+  request or response bodies, because we can get accurate Swagger schemas for free.
+
+  ## Example
+
+  In the following documentation, we will use this simple Injecto schema as example:
 
       defmodule Post do
         @properties %{
@@ -12,26 +23,148 @@ defmodule Injecto do
         }
         use Injecto
       end
-  """
 
-  @moduledoc """
-  Injects an Ecto schema and a JSON schema based on the `@properties` map.
+  The module attribute `@properties` must be defined first before invoking `use Injecto`.
+  The properties attribute is a map with field names as keys and field specs as values.
+  A field spec is a 2-tuple of `{type, options}`. For scalar types, most Ecto field types
+  are supported, namely:
 
-  #{@example_definition}
+      [
+        :binary,
+        :binary_id,
+        :boolean,
+        :float,
+        :id,
+        :integer,
+        :string,
+        :map,
+        :decimal,
+        :date,
+        :time,
+        :time_usec,
+        :naive_datetime,
+        :naive_datetime_usec,
+        :utc_datetime,
+        :utc_datetime_usec
+      ]
 
-  Injecto injects a number of Ecto and JSON-schema related functions.
+  Refer to Ecto's documentation on
+  [Primitive Types](https://hexdocs.pm/ecto/Ecto.Schema.html#module-primitive-types)
+  to see how these field types get translated into Elixir types.
+
+  Supported compound types include:
+
+    * `{:enum, atoms}` and `{:enum, keyword}`;
+    * `{:object, injecto_module}`; and
+    * `{:array, inner_type}` where `inner_type` can be a scalar, enum or object type.
+
+  ## Usage: Ecto
 
   On the Ecto side, `new/0` and `changeset/2` functions can create a `nil`-filled struct
-  and an Ecto changeset respectively. The `parse/2` (`parse_many/2`) functions convert a
-  map (a list of maps) to a changeset-validated struct (list of structs).
+  and an Ecto changeset respectively.
 
-  On the JSON-schema side, `json_schema/0` returns a resolved `ExJsonSchema.Scheam.Root`
-  struct, and `validate_json/1` validates a map based on the JSON schema.
+      iex> Post.new()
+      %Post{title: nil, description: nil, likes: nil}
+
+      iex> %Ecto.Changeset{valid?: false, errors: errors} = Post.changeset(%Post{}, %{})
+      iex> errors
+      [
+        likes: {"can't be blank", [validation: :required]},
+        title: {"can't be blank", [validation: :required]}
+      ]
+
+      iex> post = %{title: "Valid", likes: 10}
+      iex> %Ecto.Changeset{valid?: true, errors: []} = Post.changeset(%Post{}, post)
+
+  The `parse/2` function convert a map to a changeset-validated struct.
+
+      iex> {:error, errors} = Post.parse(%{})
+      iex> errors
+      %{
+        likes: [{"can't be blank", [validation: :required]}],
+        title: [{"can't be blank", [validation: :required]}]
+      }
+
+      iex> post = %{title: "Valid", likes: 10}
+      iex> {:ok, %Post{title: "Valid", likes: 10}} = Post.parse(post)
+
+      iex> valid_posts = [%{title: "A", likes: 1}, %{title: "B", likes: 2}]
+      iex> {:ok, posts} = Post.parse_many(valid_posts)
+      iex> Enum.sort_by(posts, &(&1.title))
+      [
+        %Post{title: "A", likes: 1, description: nil},
+        %Post{title: "B", likes: 2, description: nil}
+      ]
+
+  The `parse_many/2` function is the collection counter part of `parse/2`. One validation
+  error is considered to be an error for the entire collection:
+
+      iex> invalid_posts = [%{title: 1, likes: "A"}, %{title: 2, likes: "B"}]
+      iex> {:error, errors} = Post.parse_many(invalid_posts)
+      iex> errors
+      [
+        %{
+          likes: [{"is invalid", [type: :integer, validation: :cast]}],
+          title: [{"is invalid", [type: :string, validation: :cast]}]
+        },
+        %{
+          likes: [{"is invalid", [type: :integer, validation: :cast]}],
+          title: [{"is invalid", [type: :string, validation: :cast]}]
+        }
+      ]
+
+      iex> valid_posts = [%{title: "A", likes: 1}, %{title: "B", likes: 2}]
+      iex> invalid_posts = [%{title: 1, likes: "A"}]
+      iex> {:error, errors} = Post.parse_many(valid_posts ++ invalid_posts)
+      iex> errors
+      [
+        %{
+          likes: [{"is invalid", [type: :integer, validation: :cast]}],
+          title: [{"is invalid", [type: :string, validation: :cast]}]
+        }
+      ]
+
+  Note that JSON schema constraints such as `minimum: 0` are not caught by the Ecto changeset:
+
+      iex> post = %{title: "Invalid", likes: -1}
+      iex> %Ecto.Changeset{valid?: true, errors: []} = Post.changeset(%Post{}, post)
+
+  ## Usage: JSON Schema
+
+  The function `json_schema/0` returns a resolved `ExJsonSchema.Scheam.Root` struct.
+
+      iex> %ExJsonSchema.Schema.Root{schema: schema} = Post.json_schema()
+      iex> schema
+      %{
+        "properties" => %{
+          "description" => %{
+            "anyOf" => [%{"type" => "string"}, %{"type" => "null"}]
+          },
+          "likes" => %{"minimum" => 0, "type" => "integer"},
+          "title" => %{"type" => "string"}
+        },
+        "required" => ["likes", "title"],
+        "title" => "Elixir.Post",
+        "type" => "object",
+        "x-struct" => Post
+      }
+
+
+  Internally, this is used by `validate_json/1` to validate a map using the JSON schema.
+
+      iex> valid_post = %{title: "A", likes: 1}
+      iex> {:ok, ^valid_post} = Post.validate_json(valid_post)
+
+      iex> invalid_post = %{title: 123, likes: -1}
+      iex> {:error, errors} = Post.validate_json(invalid_post)
+      iex> Enum.sort(errors)
+      [
+        {"Expected the value to be >= 0", "#/likes"},
+        {"Type mismatch. Expected String but got Integer.", "#/title"}
+      ]
   """
 
   @doc """
-  #{@example_definition}
-
   Returns the struct with the fields populated with `nil`s:
 
       iex> Post.new()
@@ -40,8 +173,6 @@ defmodule Injecto do
   @callback new() :: struct()
 
   @doc """
-  #{@example_definition}
-
   Returns an Ecto changeset:
 
       iex> %Ecto.Changeset{valid?: false, errors: errors} = Post.changeset(%Post{}, %{})
@@ -62,9 +193,7 @@ defmodule Injecto do
   @callback changeset(struct(), map()) :: %Ecto.Changeset{}
 
   @doc """
-  #{@example_definition}
-
-  Returns an Ecto changeset:
+  Returns a result of a validated Elixir struct or the validation errors:
 
       iex> {:error, errors} = Post.parse(%{})
       iex> errors
@@ -90,10 +219,7 @@ defmodule Injecto do
   @callback parse(map(), Keyword.t()) :: {:ok, struct()} | {:error, any()}
 
   @doc """
-  #{@example_definition}
-
-  Invokes `parse/2` on a collection of maps, and returns `:ok` if all maps can be
-  correctly parsed:
+  Calls `parse/2` on a list of maps. Returns `:ok` if all maps are parsed correctly.
 
       iex> valid_posts = [%{title: "A", likes: 1}, %{title: "B", likes: 2}]
       iex> {:ok, posts} = Post.parse_many(valid_posts)
@@ -140,8 +266,6 @@ defmodule Injecto do
   @callback parse_many([map()], Keyword.t()) :: {:ok, [struct()]} | {:error, any()}
 
   @doc """
-  #{@example_definition}
-
   Validates and returns an `ex_json_schema` schema:
 
       iex> %ExJsonSchema.Schema.Root{schema: schema} = Post.json_schema()
@@ -163,8 +287,6 @@ defmodule Injecto do
   @callback json_schema() :: %ExJsonSchema.Schema.Root{}
 
   @doc """
-  #{@example_definition}
-
   Serialises a map, and validates the deserialised result against the JSON schema:
 
       iex> valid_post = %{title: "A", likes: 1}
