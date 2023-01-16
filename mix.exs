@@ -26,7 +26,8 @@ defmodule Injecto.MixProject do
       {:ecto_sql, "~> 3.6"},
       {:ex_json_schema, "~> 0.9.2"},
       {:jason, "~> 1.4"},
-      {:decimal, "~> 2.0"}
+      {:decimal, "~> 2.0"},
+      {:ex_doc, "~> 0.27", only: :dev, runtime: false}
     ]
   end
 end
