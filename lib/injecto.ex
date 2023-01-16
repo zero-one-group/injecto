@@ -1,5 +1,3 @@
-# TODO: tweak callback docs to have summaries.
-# TODO: write more on motivation on the moduledoc.
 defmodule Injecto do
   @moduledoc """
   A behaviour module that defines both an Ecto schema and a JSON schema.
@@ -146,7 +144,7 @@ defmodule Injecto do
         "required" => ["likes", "title"],
         "title" => "Elixir.Post",
         "type" => "object",
-        "x-struct" => Post
+        "x-struct" => "Elixir.Post"
       }
 
 
@@ -281,7 +279,7 @@ defmodule Injecto do
         "required" => ["likes", "title"],
         "title" => "Elixir.Post",
         "type" => "object",
-        "x-struct" => Post
+        "x-struct" => "Elixir.Post"
       }
   """
   @callback json_schema() :: %ExJsonSchema.Schema.Root{}
@@ -447,7 +445,7 @@ defmodule Injecto do
           "properties" => json_schema_properties(properties()),
           "required" => required_fields(properties()) |> Enum.map(&Atom.to_string/1),
           "title" => Atom.to_string(__MODULE__),
-          "x-struct" => __MODULE__
+          "x-struct" => Atom.to_string(__MODULE__)
         }
         |> ExJsonSchema.Schema.resolve()
       end

@@ -2,6 +2,20 @@ defmodule InjectoTest do
   use ExUnit.Case
   doctest Injecto
 
+  test "json_schema" do
+    assert %{
+             "properties" => %{
+               "x" => %{"type" => "integer"},
+               "y" => %{"type" => "integer"},
+               "z" => %{"type" => "integer"}
+             },
+             "required" => ["x", "y", "z"],
+             "title" => "Elixir.ParentDummy.ChildDummy",
+             "type" => "object",
+             "x-struct" => "Elixir.ParentDummy.ChildDummy"
+           } = ParentDummy.ChildDummy.json_schema().schema
+  end
+
   test "basic struct with all Ecto types" do
     valid_map = %{
       binary: "xyz",
