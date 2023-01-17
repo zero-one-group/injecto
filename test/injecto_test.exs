@@ -195,4 +195,16 @@ defmodule InjectoTest do
     assert {:ok, _} = ParentDummy.parse(invalid_json)
     assert {:error, _} = ParentDummy.validate_json(invalid_json)
   end
+
+  test "idempotent parse/1 and parse_many/1" do
+    map = %{x: 1, y: 1}
+
+    for validate_json <- [false, true] do
+      assert {:ok, parsed} = PointDummy.parse(map, validate_json: validate_json)
+      assert {:ok, _} = PointDummy.parse(parsed, validate_json: validate_json)
+
+      assert {:ok, parsed} = PointDummy.parse_many([map], validate_json: validate_json)
+      assert {:ok, _} = PointDummy.parse_many(parsed, validate_json: validate_json)
+    end
+  end
 end
