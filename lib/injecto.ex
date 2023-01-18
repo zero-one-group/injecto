@@ -387,8 +387,10 @@ defmodule Injecto do
       end
 
       @type result :: {:ok, %__MODULE__{}} | {:error, any()}
-      @spec parse(map(), Keyword.t()) :: result()
+      @spec parse(map() | %__MODULE__{}, Keyword.t()) :: result()
       def parse(input, opts \\ []) do
+        input = if is_struct(input), do: Map.from_struct(input), else: input
+
         validate_fn =
           if Keyword.get(opts, :validate_json),
             do: &validate_json/1,
@@ -399,7 +401,7 @@ defmodule Injecto do
         end
       end
 
-      @spec parse_ecto(map()) :: result()
+      @spec parse_ecto(map() | %__MODULE__{}) :: result()
       defp parse_ecto(input) do
         changeset = __MODULE__.changeset(__MODULE__.new(), input)
 
