@@ -389,7 +389,7 @@ defmodule Injecto do
       @type result :: {:ok, %__MODULE__{}} | {:error, any()}
       @spec parse(map() | %__MODULE__{}, Keyword.t()) :: result()
       def parse(input, opts \\ []) do
-        input = if is_struct(input), do: Map.from_struct(input), else: input
+        input = ensure_nested_map(input)
 
         validate_fn =
           if Keyword.get(opts, :validate_json),
@@ -436,6 +436,25 @@ defmodule Injecto do
           %{errors: errors} -> {:error, errors}
         end
       end
+
+      # Source: https://elixirforum.com/t/convert-a-nested-struct-into-a-nested-map/23814/7
+      @spec ensure_nested_map(map() | struct()) :: map()
+      @guarded_structs [Date, DateTime, NaiveDateTime, Time, Decimal]
+      defp ensure_nested_map(%{__struct__: struct} = data) when struct in @guarded_structs,
+        do: data
+
+      defp ensure_nested_map(struct) when is_struct(struct) do
+        map = Map.from_struct(struct)
+        :maps.map(fn _, value -> ensure_nested_map(value) end, map)
+      end
+
+      defp ensure_nested_map(map) when is_map(map),
+        do: :maps.map(fn _, value -> ensure_nested_map(value) end, map)
+
+      defp ensure_nested_map(list) when is_list(list),
+        do: Enum.map(list, &ensure_nested_map/1)
+
+      defp ensure_nested_map(data), do: data
 
       ## ---------------------------------------------------------------------------
       ## JSON Schema
