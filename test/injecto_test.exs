@@ -206,5 +206,17 @@ defmodule InjectoTest do
       assert {:ok, parsed} = PointDummy.parse_many([map], validate_json: validate_json)
       assert {:ok, _} = PointDummy.parse_many(parsed, validate_json: validate_json)
     end
+
+    valid_map = %{
+      scalar: "abc",
+      embed_one: %{x: 0, y: 0, z: 0},
+      embed_many: 1..10 |> Enum.map(fn i -> %{x: i, y: i, z: i} end)
+    }
+
+    assert {:ok, parsed} = ParentDummy.parse(valid_map)
+    assert {:ok, _} = ParentDummy.parse(parsed)
+
+    assert {:ok, parsed} = ParentDummy.parse_many([valid_map])
+    assert {:ok, _} = ParentDummy.parse_many(parsed)
   end
 end
