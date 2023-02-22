@@ -331,8 +331,12 @@ defmodule Injecto do
       use Ecto.Schema
       import Ecto.Changeset
 
+      Module.register_attribute(__MODULE__, :source, [])
+
+      @source @source || ""
+
       @primary_key false
-      embedded_schema do
+      schema @source do
         @properties
         |> Enum.map(fn {name, {type, _opts}} ->
           case type do
