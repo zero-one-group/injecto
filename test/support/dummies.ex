@@ -76,3 +76,11 @@ defmodule ParentDummy do
     use Injecto
   end
 end
+
+defmodule DummyWithSource do
+  @source "dummies"
+  @properties %{
+    id: {:integer, required: true}
+  }
+  use Injecto
+end

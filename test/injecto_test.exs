@@ -219,4 +219,13 @@ defmodule InjectoTest do
     assert {:ok, parsed} = ParentDummy.parse_many([valid_map])
     assert {:ok, _} = ParentDummy.parse_many(parsed)
   end
+
+  test "Ecto schema source" do
+    assert Dummy.__schema__(:source) == ""
+
+    assert {:ok, parsed} = DummyWithSource.parse(%{id: 1})
+    assert {:error, _} = DummyWithSource.parse(%{id: nil})
+    assert DummyWithSource.__schema__(:source) == "dummies"
+    assert Ecto.get_meta(parsed, :source) == "dummies"
+  end
 end
